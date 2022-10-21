@@ -1,10 +1,17 @@
 package com.jpmc.theater;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import org.json.simple.parser.ParseException;
+
 
 public class Theater {
 
@@ -28,10 +35,32 @@ public class Theater {
 				new Showing(theBatMan, 9, LocalDateTime.of(provider.currentDate(), LocalTime.of(23, 0))));
 	}
 
+
+	/**
+	 * purpose of this method is to add all the reservation details into an object and convert into a json format
+	 * 	which will be printed out in the createReservation() method
+	 *
+	 * @param  customer  an object passed in to get Customer details
+	 * @param  sequence  an int passed it to get the sequence for booking info
+	 * @param howManyTickets an int passed in to get ticket count
+	 * @return      Reservation(customer, showing, howManyTickets)
+	 */
 	public Reservation reserve(Customer customer, int sequence, int howManyTickets) {
 		Showing showing;
 		try {
 			showing = schedule.get(sequence - 1);
+			double totalTicketPrice = showing.calculateFee(howManyTickets);
+			ReservationDetails reservationDetails=new ReservationDetails();
+			reservationDetails.setCustomerName(customer.getName());
+			reservationDetails.setNumberOfTickets(howManyTickets);
+			reservationDetails.setShowStartTime(showing.getStartTime().toString());
+			reservationDetails.setTitle(showing.getMovie().getTitle());
+			reservationDetails.setTotalAmount(totalTicketPrice);
+
+			Gson gson = new GsonBuilder().setPrettyPrinting().create();
+
+			System.out.println("Below are the confirmation details:");
+			System.out.println(gson.toJson(reservationDetails));
 		} catch (RuntimeException ex) {
 			ex.printStackTrace();
 			throw new IllegalStateException("not able to find any showing for given sequence " + sequence);
@@ -39,6 +68,35 @@ public class Theater {
 		return new Reservation(customer, showing, howManyTickets);
 	}
 
+	/**
+	 * in the README.md, the instructions were that the schedule must print in simple text format
+	 * and in a json format. The schedule list is converted to json
+	 *
+	 */
+	public void printScheduleJsonFormat() throws ParseException {
+		List<Showing> newShowingsList = new ArrayList(schedule);
+		Collections.sort(newShowingsList, new SortbySequence());
+
+		List<ScheduleDetails> scheduleList = new ArrayList<ScheduleDetails>();
+
+
+
+		System.out.println("================================== Start JSON Output for Schedule ===============================");
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		for (Showing s : newShowingsList) {
+			ScheduleDetails scheduleDetails = new ScheduleDetails();
+			scheduleDetails.setSequenceOfTheDay(s.getSequenceOfTheDay());
+			scheduleDetails.setShowStartTime(s.getStartTime().toString());
+			scheduleDetails.setTitle(s.getMovie().getTitle());
+			scheduleDetails.setRunningTime(humanReadableFormat(s.getMovie().getRunningTime()));
+			scheduleDetails.setTicketPrice(s.getMovieFee());
+			scheduleList.add(scheduleDetails);
+		}
+		System.out.println(gson.toJson(scheduleList));
+		System.out.println("=================================================================================================");
+	}
+
+	//original method to print schedule
 	public void printSchedule() {
 		System.out.println(provider.currentDate());
 		System.out.println("===================================================");
@@ -47,6 +105,7 @@ public class Theater {
 						+ humanReadableFormat(s.getMovie().getRunningTime()) + " $" + s.getMovieFee()));
 		System.out.println("===================================================");
 	}
+
 
 	public String humanReadableFormat(Duration duration) {
 		long hour = duration.toHours();
@@ -64,30 +123,44 @@ public class Theater {
 		}
 	}
 
-	public void printJson() {
-		System.out.println(provider.currentDate());
-		System.out.println("================================== Start JSON Output ===============================");
-		StringBuilder sb = new StringBuilder();
-		sb.append("{\"schedule\":[");
-		for (Showing s : schedule) {
-			String str = "{\"sequenceOfTheDay\" : \"" + s.getSequenceOfTheDay() + "\", \"startTime\":\""
-					+ s.getStartTime() + "\",\"title\":\"" + s.getMovie().getTitle() + "\",\"runningTime\":\""
-					+ humanReadableFormat(s.getMovie().getRunningTime()) + "\",\"fees\":\"$" + s.getMovieFee() + "\"},";
-			sb.append(str);
+
+	/**
+	 * createReservation() prints the reservation confirmation details and takes the input from the customer
+	 * 	about the movie booking details. This method calls reserve(customer, seqNumber, numberOftickets) to print
+	 * 	the details in a json format
+	 */
+	public void createReservation(){
+
+		try {
+			BufferedReader reader =new BufferedReader(new InputStreamReader(System.in));
+			System.out.println("Enter the sequence number to make the reservation: ");
+			int seqNumber = Integer.parseInt(reader.readLine());
+			System.out.println("Enter your Name: ");
+			String customerName = reader.readLine();
+			System.out.println("Enter Number of tickets: ");
+			int numberOftickets = Integer.parseInt(reader.readLine());
+
+			Customer customer = new Customer(customerName, "123");
+
+			reserve(customer, seqNumber, numberOftickets);
+
+		} catch (IOException e) {
+			throw new RuntimeException(e);
 		}
-		String data = sb.toString();
-		data = data.substring(0, data.length() - 1);
-		sb = new StringBuilder();
-		sb.append(data).append("]}");
-		System.out.println(sb.toString());
-		System.out.println("================================== End JSON Output =================================");
+
 	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws ParseException {
 		Theater theater = new Theater(LocalDateProvider.singleton());
 		// Printing the schedule.
 		theater.printSchedule();
-		// Printing the schedule in JSON format
-		theater.printJson();
+		//print schedule in json format
+		theater.printScheduleJsonFormat();
+		// Printing reservations in JSON format
+		theater.createReservation();
+
+
+
 	}
+
 }

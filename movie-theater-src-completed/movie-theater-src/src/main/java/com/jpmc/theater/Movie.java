@@ -1,6 +1,9 @@
 package com.jpmc.theater;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 public class Movie {
@@ -11,6 +14,7 @@ public class Movie {
 	private Duration runningTime;
 	private double ticketPrice;
 	private int specialCode;
+
 
 	public Movie(String title, Duration runningTime, double ticketPrice, int specialCode) {
 		this.title = title;
@@ -35,12 +39,27 @@ public class Movie {
 		return ticketPrice - getDiscount(showing);
 	}
 
-	private double getDiscount(Showing showing) {
+	/**
+	 * a new method that was created to apply the discount to special movies
+	 *
+	 * @param  showing  an object passed in to get showing details
+	 * @return      special discount
+	 */
+	private double calculateSpecialDiscount(Showing showing) {
 		double specialDiscount = 0;
 		if (MOVIE_CODE_SPECIAL == specialCode) {
 			specialDiscount = ticketPrice * 0.2; // 20% discount for special movie
 		}
+		return specialDiscount;
+	}
 
+	/**
+	 * a new method created to calculate the discount based on the movie sequence
+	 *
+	 * @param  showing  an object passed in to get showing details
+	 * @return      sequence discount
+	 */
+	private double calculateSequenceDiscount(Showing showing) {
 		double sequenceDiscount = 0;
 		int showSequence = showing.getSequenceOfTheDay();
 		if(showSequence == 1)
@@ -53,23 +72,40 @@ public class Movie {
 		else if(showSequence == 7) {
 			sequenceDiscount = 1; // $1 discount for 7th show as mentioned in instructions
 		}
-//		default:
-//			throw new IllegalArgumentException("failed exception");
-		//}
+		return sequenceDiscount;
+	}
 
+	/**
+	 * a new method created to calculate the discount based on the showtimes
+	 * in this scenario, we are calculating the 25% discount for when the movie time at 11 am to 4 pm
+	 *
+	 * @param  showing  an object passed in to get showing details
+	 * @return      showTimeDiscount
+	 */
+	private double calculateShowtimeDiscount(Showing showing) {
 		// getHour return 0 - 23 hours
 		int hour = showing.getStartTime().getHour();
 		double showTimeDiscount = 0;
 
 		if (hour >= 11 && hour <= 16) {
-			showTimeDiscount = showTimeDiscount * 0.25;
+			showTimeDiscount = ticketPrice * 0.25;
 		}
+		return showTimeDiscount;
+	}
 
-		double discount = (specialDiscount > sequenceDiscount) // ? specialDiscount : sequenceDiscount
-				? ((specialDiscount > showTimeDiscount) ? specialDiscount : showTimeDiscount) // specialDiscount
-				: ((sequenceDiscount > showTimeDiscount) ? sequenceDiscount : showTimeDiscount); // sequenceDiscount
-		// biggest discount will win
-		return discount;
+	/**
+	 * applies all the different discounts and take only the biggest discount
+	 *
+	 * @param  showing  an object passed in to get showing details
+	 * @return      Collections.max(discountList)
+	 */
+	private double getDiscount(Showing showing) {
+		List<Double> discountList = new ArrayList<Double>();
+		discountList.add(calculateSpecialDiscount(showing));
+		discountList.add(calculateSequenceDiscount(showing));
+		discountList.add(calculateShowtimeDiscount(showing));
+
+		return Collections.max(discountList);
 	}
 
 	@Override
